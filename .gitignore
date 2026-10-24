@@ -1,0 +1,10 @@
+*.swp
+__pycache__
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.venv
+
+# Terms files hold your own secrets: never commit them
+terms.txt
+*terms*.txt

@@ -1,0 +1,45 @@
+# Runs every check on each push to main and on pull requests, on Python 3.10 and 3.14:
+# lint, types and tests.
+# It deliberately has no secrets and no write access.
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# The workflow only reads the repository.
+permissions:
+  contents: read
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        # The oldest Python the README claims, and the newest the project is developed on.
+        python-version: ["3.10", "3.14"]
+    env:
+      # Read by the Makefile.
+      PYTHON_VERSION: ${{ matrix.python-version }}
+      # Pinned so a new release can't change the result of a check.
+      UV_VERSION: "0.12.23"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        run: pipx install "uv==${UV_VERSION}"
+
+      - name: Install Python ${{ matrix.python-version }} and the dev tools
+        run: make install
+
+      - name: Run every check
+        run: make check

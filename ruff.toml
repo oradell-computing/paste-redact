@@ -1,0 +1,2 @@
+# The script runs on a system python3, so it targets the oldest Python the README documents.
+target-version = "py310"
