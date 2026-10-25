@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Required Notice: Copyright (c) 2026 Wick McLean (https://github.com/oradell-computing)
+# Licensed under the PolyForm Small Business License 1.0.0:
+# https://polyformproject.org/licenses/small-business/1.0.0
 """Mask sensitive values in text before pasting it into a chat, issue or forum.
 
 Reads stdin, writes the redacted text to stdout (and nothing else); warnings go to stderr.
@@ -20,7 +23,7 @@ import os
 import re
 import sys
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 LABEL_SEPARATOR = " => "
 DEFAULT_TERMS = "~/.config/paste-redact/terms.txt"

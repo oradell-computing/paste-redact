@@ -49,7 +49,7 @@ chmod 600 ~/.config/paste-redact/terms.txt
 command -v paste-redact && paste-redact --version
 ```
 
-The last line should print the path and `paste-redact 0.1.0`. If it prints nothing, open a new
+The last line should print the path and `paste-redact 0.2.0`. If it prints nothing, open a new
 shell: most Linux distributions add `~/.local/bin` to your `PATH` once it exists.
 
 **macOS:** add `export PATH="$HOME/.local/bin:$PATH"` to `~/.zshrc` and open a new terminal.
@@ -238,4 +238,13 @@ To report a security problem, see [SECURITY.md](SECURITY.md).
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+paste-redact is licensed under the [PolyForm Small Business License 1.0.0](LICENSE). You may
+use, change and share it for the benefit of a company with fewer than 100 people (employees
+and contractors) and less than US$1,000,000 in revenue in the prior tax year (2019 dollars,
+adjusted for inflation). That covers most freelancers and small teams; the license has the
+exact terms. Larger companies need a commercial license: ask through my GitHub profile,
+<https://github.com/oradell-computing>.
+
+Version 0.1.0 was released under the
+[MIT License](https://github.com/oradell-computing/paste-redact/blob/v0.1.0/LICENSE), and
+copies of that version stay under it. The PolyForm license applies from version 0.2.0.
