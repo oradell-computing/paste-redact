@@ -77,6 +77,67 @@ def test_longest_term_wins_even_when_listed_last(run: Runner) -> None:
     assert run("host acme-internal and acme", terms=terms).out == "host LONG and SHORT"
 
 
+def test_case_sensitive_term_matches_exact_case_only(run: Runner) -> None:
+    result = run("John john JOHN John", terms="John ==> ME\n")
+    assert result.out == "ME john JOHN ME"
+
+
+def test_case_sensitive_term_without_a_label_is_not_a_thing(run: Runner) -> None:
+    # No " ==> " means a plain, case-insensitive term, "==" and all.
+    assert run("a x==y X==Y", terms="x==y\n").out == "a REDACTED REDACTED"
+
+
+def test_case_sensitive_term_strips_whitespace_and_keeps_labels_literal(
+    run: Runner,
+) -> None:
+    result = run("a Bluebird b", terms="  Bluebird   ==>   C:\\work\\1  \n")
+    assert result.out == "a C:\\work\\1 b"
+
+
+def test_case_sensitive_term_with_an_empty_label_falls_back_to_redacted(
+    run: Runner,
+) -> None:
+    assert run("a Secret secret b", terms="Secret ==> \n").out == "a REDACTED secret b"
+
+
+def test_only_the_first_case_sensitive_separator_splits_the_label(run: Runner) -> None:
+    assert run("x Token y", terms="Token ==> A ==> B\n").out == "x A ==> B y"
+
+
+def test_the_earliest_separator_wins_when_a_line_has_both(run: Runner) -> None:
+    assert run("x Tok tok y", terms="Tok ==> A => B\n").out == "x A => B tok y"
+    assert run("x Tok tok y", terms="tok => A ==> B\n").out == "x A ==> B A ==> B y"
+
+
+def test_mixed_terms_file_applies_each_kind_its_own_way(run: Runner) -> None:
+    terms = "John ==> ME\nacme => CLIENT\nplain\n"
+    result = run("John john ACME Acme PLAIN", terms=terms)
+    assert result.out == "ME john CLIENT CLIENT REDACTED"
+
+
+def test_longest_first_covers_both_kinds_together(run: Runner) -> None:
+    # The shorter term is listed first in each file, so only sorting can make the long one win.
+    result = run("Acme-Internal acme", terms="acme => SHORT\nAcme-Internal ==> LONG\n")
+    assert result.out == "LONG SHORT"
+    result = run("acme-internal Acme", terms="Acme ==> SHORT\nacme-internal => LONG\n")
+    assert result.out == "LONG SHORT"
+
+
+def test_a_case_sensitive_line_with_an_empty_secret_is_ignored_with_a_warning(
+    run: Runner,
+) -> None:
+    result = run("a b", terms=" ==> LABEL\n")
+    assert result.out == "a b"
+    assert "empty secret" in result.err
+    assert "LABEL" not in result.err
+
+
+def test_existing_arrow_terms_file_behaves_as_before(run: Runner) -> None:
+    terms = "acme => Customer\nhunter2\nDB_PASSWORD=x => PW\n"
+    result = run("ACME hunter2 HUNTER2 db_password=x", terms=terms)
+    assert (result.out, result.err) == ("Customer REDACTED REDACTED PW", "")
+
+
 def test_terms_apply_before_builtin_patterns(run: Runner) -> None:
     # The address is a term, so it gets the term's label rather than EMAIL.
     result = run("mail jane@example.com", terms="jane@example.com => CONTACT\n")

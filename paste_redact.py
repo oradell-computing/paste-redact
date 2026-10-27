@@ -10,10 +10,12 @@ Your own terms live in ~/.config/paste-redact/terms.txt (override the path with 
 PASTE_REDACT_TERMS environment variable), one per line:
     secret-text             -> replaced with REDACTED
     secret-text => LABEL    -> replaced with LABEL (the separator is " => ", with spaces)
+    secret-text ==> LABEL   -> the same, but the secret must match with exact case
     # comment               -> ignored
-A line without " => " is one plain term, even if it contains "=". Whitespace around the
-secret and the label is stripped.
-Terms are matched case-insensitively, longest first, and applied before the built-in patterns.
+A line with neither " => " nor " ==> " is one plain term, even if it contains "=". If a line
+has both, the first one splits it. Whitespace around the secret and the label is stripped.
+Terms are matched longest first (both kinds together) and applied before the built-in
+patterns. Plain terms and "=>" terms ignore case; "==>" terms do not.
 """
 
 from __future__ import annotations
@@ -23,9 +25,10 @@ import os
 import re
 import sys
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
-LABEL_SEPARATOR = " => "
+LABEL_SEPARATOR = " => "  # case-insensitive term
+CASE_SENSITIVE_SEPARATOR = " ==> "
 DEFAULT_TERMS = "~/.config/paste-redact/terms.txt"
 
 PATTERNS = [
@@ -72,8 +75,24 @@ def terms_path() -> str:
     return os.path.expanduser(os.environ.get("PASTE_REDACT_TERMS") or DEFAULT_TERMS)
 
 
-def parse_terms(lines: list[str]) -> list[tuple[str, str]]:
-    """Turn terms-file lines into (secret, label) pairs, longest secret first."""
+def split_term(line: str) -> tuple[str, str, bool]:
+    """Split a line into (secret, label, case_sensitive); the earliest separator wins."""
+    found = [
+        (line.index(sep), sep, case_sensitive)
+        for sep, case_sensitive in (
+            (LABEL_SEPARATOR, False),
+            (CASE_SENSITIVE_SEPARATOR, True),
+        )
+        if sep in line
+    ]
+    if not found:  # a plain term, "=" and all
+        return line, "", False
+    index, sep, case_sensitive = min(found)
+    return line[:index], line[index + len(sep) :], case_sensitive
+
+
+def parse_terms(lines: list[str]) -> list[tuple[str, str, bool]]:
+    """Turn terms-file lines into (secret, label, case_sensitive), longest secret first."""
     terms = []
     for line in lines:
         line = line.rstrip(
@@ -81,18 +100,18 @@ def parse_terms(lines: list[str]) -> list[tuple[str, str]]:
         )  # CRLF files (Windows editors) must not leave a "\r" in the term
         if not line.strip() or line.lstrip().startswith("#"):
             continue
-        secret, separator, label = line.partition(LABEL_SEPARATOR)
-        if not separator:  # a plain term, "=" and all
-            secret, label = line, ""
+        secret, label, case_sensitive = split_term(line)
         secret, label = secret.strip(), label.strip()
         if not secret:
-            warn("terms file: ignored a line with an empty secret before ' => '")
+            warn(
+                "terms file: ignored a line with an empty secret before ' => ' or ' ==> '"
+            )
             continue
-        terms.append((secret, label or "REDACTED"))
+        terms.append((secret, label or "REDACTED", case_sensitive))
     return sorted(terms, key=lambda t: len(t[0]), reverse=True)
 
 
-def load_terms(path: str) -> list[tuple[str, str]]:
+def load_terms(path: str) -> list[tuple[str, str, bool]]:
     """Read the terms file. A missing file only warns; any other failure stops the run.
 
     Stopping is deliberate: carrying on would print text that still contains the secrets
@@ -118,11 +137,14 @@ def read_input() -> str:
         return data.decode("utf-8", errors="replace")
 
 
-def redact(text: str, terms: list[tuple[str, str]]) -> str:
-    for secret, label in terms:
+def redact(text: str, terms: list[tuple[str, str, bool]]) -> str:
+    for secret, label, case_sensitive in terms:
         # Double the backslashes so a label like C:\work is inserted literally, not as an escape.
         text = re.sub(
-            re.escape(secret), label.replace("\\", "\\\\"), text, flags=re.IGNORECASE
+            re.escape(secret),
+            label.replace("\\", "\\\\"),
+            text,
+            flags=0 if case_sensitive else re.IGNORECASE,
         )
     for pattern, replacement in PATTERNS:
         text = pattern.sub(replacement, text)

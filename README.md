@@ -49,7 +49,7 @@ chmod 600 ~/.config/paste-redact/terms.txt
 command -v paste-redact && paste-redact --version
 ```
 
-The last line should print the path and `paste-redact 0.2.0`. If it prints nothing, open a new
+The last line should print the path and `paste-redact 0.3.0`. If it prints nothing, open a new
 shell: most Linux distributions add `~/.local/bin` to your `PATH` once it exists.
 
 **macOS:** add `export PATH="$HOME/.local/bin:$PATH"` to `~/.zshrc` and open a new terminal.
@@ -89,13 +89,19 @@ The format is one entry per line:
 444455556666 => PROD_ACCOUNT
 client.example.com => CLIENT_DOMAIN
 
-# A line without " => " is masked as REDACTED, even if it contains "="
+# secret ==> LABEL does the same, but only for text with exactly this case
+John ==> ME
+
+# A line without " => " or " ==> " is masked as REDACTED, even if it contains "="
 project-bluebird
 DB_PASSWORD=hunter2
 ```
 
-- Terms are literal text, matched without regard to case. The longest term wins when two
-  overlap, and terms are applied before the built-in patterns.
+- Terms are literal text. Plain lines and `=>` lines match without regard to case; `==>` lines
+  match the exact case only (`John ==> ME` changes `John`, not `john` or `JOHN`). If a line
+  contains both separators, the first one splits it.
+- The longest term wins when two overlap, whichever kind it is, and terms are applied before
+  the built-in patterns.
 - Spaces around the secret and the label are trimmed. Labels are inserted exactly as written.
 - A plain line masks only that exact text. In the example above, `hunter2` on its own is not
   masked unless you list it on its own line too.
@@ -155,7 +161,7 @@ Messages go to standard error, never into the redacted output.
 | --- | --- |
 | `warning: terms file not found` | Only the built-in patterns were applied |
 | `warning: input is not valid UTF-8` | Invalid bytes were replaced with `U+FFFD` and the rest was redacted |
-| a warning about an empty secret | A line such as ` => LABEL` was ignored |
+| a warning about an empty secret | A line such as ` => LABEL` or ` ==> LABEL` was ignored |
 | `error: cannot read terms file` | The run stopped and printed **nothing**, rather than output that might still contain your terms |
 
 Exit codes: `0` success, `1` the terms file couldn't be read, `2` an unknown option.
@@ -202,7 +208,8 @@ Test it once with a line such as `acct 111122223333` before relying on it: you s
 - **The patterns are blunt.** Any 12 digits become `ACCOUNT`, including example IDs. A
   four-part version number such as `1.2.3.4` becomes `IP`. IPv6 addresses, 13-digit
   timestamps and 40-character git hashes are not masked.
-- **Plain terms match exact text only**, so variations need their own lines.
+- **Terms match their text only**, so variations (other spellings, plurals) need their own
+  lines.
 - **It can't redact what you have already sent.** Clean the text first, then paste.
 
 Read every result before you share it.
